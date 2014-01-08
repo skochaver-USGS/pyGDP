@@ -474,6 +474,7 @@ class pyGDPwebProcessing():
         request = etree.tostring(root)
         
         execution = POST.execute(None, [], request=request)
+        self._check_for_execution_errors(execution)
         if method == 'getDataSetTime':
             seekterm = '{xsd/gdptime-1.0.xsd}time'
         elif method == 'getDataType':
@@ -547,6 +548,22 @@ class pyGDPwebProcessing():
                         attributes.append(etree.QName(element).localname)
         return attributes
     
+    def _check_for_execution_errors(self, execution):
+        '''wps does not raise python errors if something goes wrong on the server side
+        we will check for errors, and the succeded status and raise python
+        Exceptions as needed 
+        '''
+        errmsg = ""
+        
+        if execution.status == "ProcessFailed":
+            errmsg = "The remote process failed!\n"
+        
+        if execution.errors:
+            #something went wrong, it would be a shame to pass silently
+            errmsg += "\n".join([err.text for err in execution.errors])
+        
+        if errmsg:
+            raise Exception(errmsg)
     def getShapefiles(self):
         """
         Returns a list of available files currently on geoserver.
@@ -791,6 +808,7 @@ class pyGDPwebProcessing():
                 raise Exception("The process completed successfully, but an error occurred while downloading the result. You may be able to download the file using the link at the bottom of the status document: %s" % execution.statusLocation)
             sleep(sleepSecs)
             
+        self._check_for_execution_errors(execution)
         result_string = result.getvalue()
         output = result_string.split('\n')
         tmp = output[len(output) - 2].split(' ')  
